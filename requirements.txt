@@ -1,0 +1,12 @@
+streamlit
+pdfplumber
+python-docx
+python-pptx
+pandas
+pillow
+pytesseract
+faiss-cpu
+sentence-transformers
+transformers
+requests
+beautifulsoup4
