@@ -1,3 +1,6 @@
+import os
+os.environ["STREAMLIT_SERVER_ENABLEFILEWATCHER"] = "false"
+
 import streamlit as st
 import io
 from document_ingestion import (ingest_pdf, ingest_docx, ingest_pptx, 
