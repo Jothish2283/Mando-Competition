@@ -12,6 +12,8 @@ requests
 beautifulsoup4
 torch
 
+google-generativeai
+
 # Add these two for OCR alternatives:
 paddleocr
 paddlepaddle        # choose cpu or gpu build as appropriate
