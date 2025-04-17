@@ -87,5 +87,5 @@ if st.button("Get Answer"):
 
         # Generative LLM answer
         gen_ans = qa_system.generate_answer(question, context)
-        st.subheader("Generative Answer (LLM)")
-        st.write(gen_ans)
+        st.subheader("Generative Answer (Gemini LLM)")
+        st.write( qa_system.generate_with_gemini(question, context) )
