@@ -1,5 +1,3 @@
-# qa_engine.py
-
 import os
 from transformers import pipeline
 import google.generativeai as genai
