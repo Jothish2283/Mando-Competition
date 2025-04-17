@@ -10,3 +10,4 @@ sentence-transformers
 transformers
 requests
 beautifulsoup4
+torch
