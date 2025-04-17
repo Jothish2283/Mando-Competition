@@ -11,3 +11,8 @@ transformers
 requests
 beautifulsoup4
 torch
+
+# Add these two for OCR alternatives:
+paddleocr
+paddlepaddle        # choose cpu or gpu build as appropriate
+google-cloud-vision  # if you want to use Google Vision API
