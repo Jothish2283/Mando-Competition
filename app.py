@@ -3,88 +3,89 @@ os.environ["STREAMLIT_SERVER_ENABLEFILEWATCHER"] = "false"
 
 import streamlit as st
 import io
-from document_ingestion import (ingest_pdf, ingest_docx, ingest_pptx, 
-                                ingest_csv, ingest_excel, ingest_json, 
-                                ingest_txt, ingest_image)
+from document_ingestion import (
+    ingest_pdf, ingest_docx, ingest_pptx,
+    ingest_csv, ingest_excel, ingest_json,
+    ingest_txt, ingest_image
+)
 from indexer import SemanticIndexer
 from qa_engine import QASystem
 from web_crawler import crawl_url
-import pandas as pd
-import json
 
-st.title("Mando Q&A System")
-st.write("Upload your documents and ask a question!")
+st.set_page_config(page_title="Mando Q&A", layout="wide")
+st.title("Mando: Document Q&A System")
 
-# Upload multiple files
-uploaded_files = st.file_uploader("Choose files", accept_multiple_files=True)
-additional_url = st.text_input("Optional: Enter a URL to crawl for additional content")
+# File upload
+uploaded_files = st.file_uploader(
+    "Upload files (PDF, DOCX, PPTX, CSV, XLSX, JSON, TXT, PNG/JPG):",
+    accept_multiple_files=True
+)
+url_input = st.text_input("Optional URL to crawl:")
 
-# Instantiate indexer and QA system
-indexer = SemanticIndexer()
+if st.button("Process & Index"):
+    if not uploaded_files and not url_input:
+        st.error("Please upload files or enter a URL.")
+    else:
+        full_text = ""
+        # Ingest each file
+        for f in uploaded_files:
+            name = f.name.lower()
+            data = f.read()
+            st.write(f"• Processing `{name}`")
+            if name.endswith(".pdf"):
+                text = ingest_pdf(data)
+            elif name.endswith(".docx"):
+                text = ingest_docx(data)
+            elif name.endswith(".pptx"):
+                text = ingest_pptx(data)
+            elif name.endswith(".csv"):
+                _, text = ingest_csv(data)
+            elif name.endswith((".xls", ".xlsx")):
+                _, text = ingest_excel(data)
+            elif name.endswith(".json"):
+                text = ingest_json(data)
+            elif name.endswith(".txt"):
+                text = ingest_txt(data)
+            elif name.endswith((".png", ".jpg", ".jpeg")):
+                text = ingest_image(data)
+            else:
+                text = f"[Unsupported format: {name}]"
+            full_text += "\n" + text
+
+        # Crawl URL if given
+        if url_input.strip():
+            st.write(f"• Crawling `{url_input}`")
+            crawled = crawl_url(url_input)
+            full_text += "\n" + crawled
+
+        # Build semantic index
+        indexer = SemanticIndexer()
+        indexer.add_document(full_text)
+        indexer.build_index()
+        st.session_state['indexer'] = indexer
+        st.success("✅ Indexed all content.")
+
 qa_system = QASystem()
 
-if st.button("Process Documents"):
-    all_text = ""
-    # Process each uploaded file by extension
-    for uploaded_file in uploaded_files:
-        file_name = uploaded_file.name.lower()
-        file_bytes = uploaded_file.read()
-        st.write(f"Processing {file_name} ...")
-        
-        if file_name.endswith(".pdf"):
-            text = ingest_pdf(file_bytes)
-        elif file_name.endswith(".docx"):
-            text = ingest_docx(file_bytes)
-        elif file_name.endswith(".pptx"):
-            text = ingest_pptx(file_bytes)
-        elif file_name.endswith(".csv"):
-            # For CSV, we load the DataFrame and then convert to string
-            df, csv_text = ingest_csv(file_bytes)
-            text = csv_text
-        elif file_name.endswith((".xlsx", ".xls")):
-            df, csv_text = ingest_excel(file_bytes)
-            text = csv_text
-        elif file_name.endswith(".json"):
-            text = ingest_json(file_bytes)
-        elif file_name.endswith(".txt"):
-            text = ingest_txt(file_bytes)
-        elif file_name.endswith((".png", ".jpg", ".jpeg")):
-            text = ingest_image(file_bytes)
-        else:
-            text = f"Unsupported file format: {file_name}"
-        
-        all_text += "\n" + text
-    
-    # Optionally fetch content from URL
-    if additional_url:
-        st.write(f"Crawling URL: {additional_url}")
-        crawled_text = crawl_url(additional_url)
-        all_text += "\n" + crawled_text
-    
-    st.success("Documents processed! Building index...")
-    
-    # Add the combined text into the indexer
-    indexer.add_document(all_text)
-    indexer.build_index()
-    st.session_state['indexer'] = indexer  # Save indexer in session
-
-    st.success("Index built!")
-
-# Ask a question and get an answer
-question = st.text_input("Ask your question:")
-
-if st.button("Answer") and question:
-    # Retrieve top matching chunks from the index
-    indexer = st.session_state.get('indexer', None)
-    if not indexer:
-        st.error("No index available. Please process documents first.")
+question = st.text_input("Ask a question:")
+if st.button("Get Answer"):
+    if 'indexer' not in st.session_state:
+        st.error("No index found. Please process documents first.")
+    elif not question.strip():
+        st.error("Please enter a question.")
     else:
-        results = indexer.query(question, top_k=5)
-        # Concatenate the top chunks to form a context
-        context = "\n".join([chunk for chunk, score in results])
-        st.write("**Retrieved Context:**")
+        idx = st.session_state['indexer']
+        hits = idx.query(question, top_k=5)
+        context = "\n".join([chunk for chunk, _ in hits])
+        st.subheader("Retrieved Context")
         st.write(context)
-        # Get answer from QA system
-        answer = qa_system.answer_question(question, context)
-        st.write("**Answer:**")
-        st.write(answer)
+
+        # Extractive span-based answer
+        ext_ans = qa_system.answer_extractive(question, context)
+        st.subheader("Extractive Answer")
+        st.write(ext_ans)
+
+        # Generative LLM answer
+        gen_ans = qa_system.generate_answer(question, context)
+        st.subheader("Generative Answer (LLM)")
+        st.write(gen_ans)
