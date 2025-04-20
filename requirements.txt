@@ -11,6 +11,7 @@ transformers
 requests
 beautifulsoup4
 torch
+openpyxl
 
 google-generativeai
 
